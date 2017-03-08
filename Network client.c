@@ -34,31 +34,33 @@ int main(int argc, char *argv[])
 
     char recvBuff[1024];
     memset(recvBuff, '0', 1024);
+    fprintf(stderr, "%d\n", __LINE__);
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
-        printf("\n Error : Could not create socket \n");
+        printf("\n Failed to create socket \n");
         return 1;
     } 
-
+    fprintf(stderr, "%d\n", __LINE__);
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(5000); 
-    memset(&serv_addr, '0', sizeof(serv_addr)); 
+    memset(&(serv_addr.sin_zero), '0', 8); 
 
     if(inet_pton(AF_INET, argv[1], &serv_addr.sin_addr)<=0)
     {
         printf("\nFailed to interpret IP address\n");
         return 1;
     } 
-
+    fprintf(stderr, "%d\n", __LINE__);
     if( connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
        printf("\n Failed to connect\n");
        return 1;
     } 
-
-    while ( (n = read(sockfd, recvBuff, sizeof(recvBuff)-1)) > 0)
+	fprintf(stderr, "%d\n", __LINE__);
+    while ( (n = recv(sockfd, recvBuff, sizeof(recvBuff)-1, 0)) > 0)
     {
         recvBuff[n] = 0;
+	printf("%d\n", __LINE__);
         if(fputs(recvBuff, stdout) == EOF)
         {
             printf("\n Fputs error\n");
