@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 2.8)
+project( Webcam )
+find_package( OpenCV REQUIRED )
+add_executable( Webcam webcam.c )
+target_link_libraries( Webcam ${OpenCV_LIBS} )
