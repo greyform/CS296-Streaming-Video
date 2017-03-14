@@ -6,7 +6,7 @@
 
 #IncludeRegexTransform: 
 
-/home/why/Downloads/webcam.c
+/home/why/Downloads/CS296-Streaming-Video/Webcam/webcam.c
 opencv2/opencv.hpp
 -
 stdlib.h

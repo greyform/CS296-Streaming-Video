@@ -4,7 +4,7 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_C
-  "/home/why/Downloads/webcam.c" "/home/why/Downloads/CMakeFiles/Webcam.dir/webcam.c.o"
+  "/home/why/Downloads/CS296-Streaming-Video/Webcam/webcam.c" "/home/why/Downloads/CS296-Streaming-Video/Webcam/CMakeFiles/Webcam.dir/webcam.c.o"
   )
 set(CMAKE_C_COMPILER_ID "GNU")
 
