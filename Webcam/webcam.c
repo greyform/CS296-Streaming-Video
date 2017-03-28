@@ -11,45 +11,30 @@ CvMat* encode(){
 	CvCapture* capture=0;
 	IplImage* img=0;
 
-capture = cvCaptureFromCAM(0);//cvCaptureFromAVI("drop.avi");//
+capture = cvCaptureFromAVI("drop.avi");//
 
 if( !capture )
     printf( "Error when reading steam_avi");
 
-int param = CV_IMWRITE_JPEG_QUALITY;
+const static int encodeParams[] = { CV_IMWRITE_JPEG_QUALITY, 95 };
 
-	img = cvQueryFrame( capture );
-	
-	CvMat* encoded = cvEncodeImage(".jpg", img, &param );
-	//cvShowImage("w",img);
+img = cvQueryFrame( capture );
 
-	char c = cvWaitKey(10);
-	if(c =='x') return NULL;
-	
-cvReleaseImage(&img);
-
-return encoded;
+return cvEncodeImage(".jpg", img, encodeParams);
 }
 
 
 void decode(CvMat * frame){
-IplImage* img = cvDecodeImage(frame, CV_LOAD_IMAGE_COLOR);
+cvShowImage( "w", frame );
+}
 
-cvNamedWindow( "w", CV_WINDOW_AUTOSIZE);
-
-int fps = 60;//(int)cvGetCaptureProperty(capture, CV_CAP_PROP_FPS);
-int frameW= (int)cvGetCaptureProperty(capture, CV_CAP_PROP_FRAME_WIDTH);
-int frameH= (int)cvGetCaptureProperty(capture, CV_CAP_PROP_FRAME_HEIGHT);
-  CvVideoWriter *writer=cvCreateVideoWriter("camera60.avi", CV_FOURCC('M','J','P','G'),
-                       fps,cvSize(frameW, frameH), 1);
-cvShowImage("w",img);
-	char c = cvWaitKey(10);
-	if(c =='f'){
-		cvWriteFrame(writer,img);
+int main(int argc, char** argv)
+{ cvNamedWindow( "w", CV_WINDOW_AUTOSIZE);
+	while(1){
+		decode(encode());
 	}
-	
-	cvReleaseImage(&img);
 	cvDestroyWindow("w");
+	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////
 /*int main(int argc, char** argv)
