@@ -42,7 +42,8 @@ typedef struct hostent hostent;
 
 int broadcastPermission = 1;
 int reuse = 1;
-
+char * localhost = "127.0.0.1";
+unsigned short default_port = 9999;
 /*unsigned short resolveService(char * service, char* protocol){
     servent * serv;
     if ((serv = getservbyname(service.c_str(), protocol.c_str())) == NULL) {
@@ -141,32 +142,38 @@ int main(int argc, char *argv[])
 
     //char* sendString = argv[3];               // Third arg:  string to broadcast
 
-    char * buff = (char*)malloc(65507);
-
-    cvNamedWindow("TCP Video Receiver", CV_WINDOW_AUTOSIZE);
-    vector * videoBuffer = vector_create(NULL, NULL, NULL);
+    //setup openCV
+    cvNamedWindow("UDP Video Sender", CV_WINDOW_AUTOSIZE);
+    CvCapture* capture = cvCaptureFromCAM(0);
+    if(!capture){
+        perror("No camera found.");
+        //goto DONE;
+        exit(1);
+    }
+    IplImage *frame;
+    frame = cvQueryFrame(capture);
+    ////
+    CvMat *mat = cvCreaeteMat(frame->height, frame->width, CV_32FC3 );
+    cvConvert(frame, mat);
+    ////
+    IplImage *small = cvCreateImage(cvSize(frame->width / 2, frame->height / 2),
+        frame->depth, 3);
 
     while(1){
-        //char* msg = "Hello Kugo | Miao miao miao miao miao";
-        //sendTo(socket_desc, msg, strlen(msg), server_address, server_port);
-        //sleep(3);
-        //break;
+        frame = cvQueryFrame(capture);
+        cvShowImage("UDP Video Sender", small);
 
-        int result = recvFrom(socket_desc, buff, 65507);
-        if(result<0){
-            perror("Failed to recieve");
-            continue;
+        int result = sendTo(socket_desc, small, small->imageSize, server_address, server_port);
+        if(result <0){
+            perror("Send ()");
+            exit(1);
         }
-        printf("gotcha size: %d.\n", result);
+        else{
+            printf("sent frame of size : %d.\n", result);
+        }
 
-        vector_resize(videoBuffer, result);
-        memcpy((char*) vector_get(videoBuffer, 0), buff, result);
-
-        IplImage * image = cvDecodeImage(videoBuffer, 1);
-        cvShowImage("TCP Video Reciever", &image);
-
-        cvWaitKey(5);
-    }
+        cvWaitKey(15);
+    } 
 
     cleanup(socket_desc);
 
