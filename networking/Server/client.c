@@ -117,6 +117,19 @@ int recvFrom(int socket_desc, void *buffer, int bufferLen){
 }
 
 
+void setLocalPort(int socket_desc, unsigned short port) { //server
+    sockaddr_in localAddr;
+    memset(&localAddr, 0, sizeof(localAddr));
+    localAddr.sin_family = AF_INET;
+    localAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    localAddr.sin_port = htons(port);
+
+    if(bind(socket_desc, (sockaddr*)&localAddr, sizeof(localAddr)) != 0){
+        perror("bind()");
+        exit(1);
+    }
+}
+
 
 
 void usage(char * command){
@@ -137,7 +150,7 @@ int main(int argc, char *argv[])
 
     //setsockopt(socket_desc, SOL_SOCKET, SO_BROADCAST, &broadcastPermission, sizeof(broadcastPermission));
     //setsockopt(socket_desc, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse));
-    //setLocalPort(socket_desc, port);
+    setLocalPort(socket_desc, 5000);
 
 
     //char* sendString = argv[3];               // Third arg:  string to broadcast
@@ -152,25 +165,22 @@ int main(int argc, char *argv[])
     }
     IplImage *frame;
     frame = cvQueryFrame(capture);
-    ////
-    CvMat *mat = cvCreaeteMat(frame->height, frame->width, CV_32FC3 );
+    /*
+    CvMat *mat = cvCreaeteMatHeader(frame->height, frame->width, CV_32FC3 );
+    cvCreateData(mat);
     cvConvert(frame, mat);
-    ////
-    IplImage *small = cvCreateImage(cvSize(frame->width / 2, frame->height / 2),
+    */
+	int x= 0;
+    IplImage *small = cvCreateImage(cvSize(frame->width / 4, frame->height / 4),
         frame->depth, 3);
+	//CvMat* mat = cvEncodeImage(".jpg", (CvArr*)small, &x);
+	//printf("%d/n",small->imageSize);
 
     while(1){
         frame = cvQueryFrame(capture);
         cvShowImage("UDP Video Sender", small);
 
-        int result = sendTo(socket_desc, small, small->imageSize, server_address, server_port);
-        if(result <0){
-            perror("Send ()");
-            exit(1);
-        }
-        else{
-            printf("sent frame of size : %d.\n", result);
-        }
+        sendTo(socket_desc, (char *)small, small->imageSize, server_address, server_port);
 
         cvWaitKey(15);
     } 

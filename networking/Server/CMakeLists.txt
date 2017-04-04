@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 2.8)
+project( Video_Streaming )
+find_package( OpenCV REQUIRED )
+add_executable( Video_Streaming client.c vector.c callbacks.c )
+target_link_libraries( Video_Streaming ${OpenCV_LIBS} )

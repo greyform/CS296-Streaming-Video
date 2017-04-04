@@ -7,33 +7,37 @@
 #include <ml.h>
 #include <cxcore.h>
 
-CvMat* encode(){
-	CvCapture* capture=0;
-	IplImage* img=0;
 
-capture = cvCaptureFromAVI("drop.avi");//
 
-if( !capture )
-    printf( "Error when reading steam_avi");
+IplImage* encode(){
+	CvCapture* capture=cvCaptureFromAVI("drop.avi");
+	if( !capture )
+    		printf( "Error when reading steam_avi");
+	IplImage* frame=cvQueryFrame( capture );
+	cvNamedWindow( "w", CV_WINDOW_AUTOSIZE);
 
-const static int encodeParams[] = { CV_IMWRITE_JPEG_QUALITY, 95 };
+	IplImage * small = cvCreateImage(cvSize(frame->width/2, frame->height/2), frame->depth, 3);
 
-img = cvQueryFrame( capture );
+	
 
-return cvEncodeImage(".jpg", img, encodeParams);
+//const static int encodeParams[] = { CV_IMWRITE_JPEG_QUALITY, 95 };
+
+return img;//cvEncodeImage(".jpg", img, encodeParams);
 }
 
 
-void decode(CvMat * frame){
-cvShowImage( "w", frame );
+void decode(IplImage * frame){
+cvNamedWindow( "w", CV_WINDOW_AUTOSIZE);
+while(1){
+	if(!frame){printf("nope");break;}
+	cvShowImage( "w", frame );
+	}
+cvDestroyWindow("w");
 }
 
 int main(int argc, char** argv)
-{ cvNamedWindow( "w", CV_WINDOW_AUTOSIZE);
-	while(1){
-		decode(encode());
-	}
-	cvDestroyWindow("w");
+{
+	decode(encode());
 	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////
@@ -48,7 +52,7 @@ if( !capture )
     printf( "Error when reading steam_avi");
 
 cvNamedWindow( "w", CV_WINDOW_AUTOSIZE);
-int num = 0;
+/*int num = 0;
 int x = 1;
 char s[20];
 
