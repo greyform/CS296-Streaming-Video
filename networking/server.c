@@ -12,8 +12,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include <cv.h>
-#include <highgui.h>
+#include <opencv/cv.h>
+#include <opencv/highgui.h>
 #include <ml.h>
 #include <cxcore.h>
 #include "vector.h"
@@ -38,6 +38,9 @@ typedef struct hostent hostent;
 
 int broadcastPermission = 1;
 int reuse = 1;
+
+char * localhost = "127.0.0.1";
+unsigned short default_port = 9999;
 
 static void fillAddr(const char * address, unsigned short port, sockaddr_in * addr) {
     //memset(&addr, 0, sizeof(addr));
@@ -109,7 +112,20 @@ int createSocket(int type, int protocol){
 fillAddr(foreignAddress, foreignPort, &destAddr);
 }*/
 
-void sendTo(int socket_desc, const void *buffer, int bufferLen, const char *foreignAddress, unsigned short foreignPort) {
+/*void sendTo(int socket_desc, const void *buffer, int bufferLen, const char *foreignAddress, unsigned short foreignPort) {
+    sockaddr_in destAddr;
+    memset(&destAddr, 0, sizeof(destAddr));
+    //fprintf(stderr, "%d: %d\n", __LINE__, bufferLen);
+    fillAddr(foreignAddress, foreignPort, &destAddr);
+
+  // Write out the whole buffer as a single message.
+    if (sendto(socket_desc, buffer, bufferLen, 0,
+             (sockaddr *) &destAddr, sizeof(destAddr)) != bufferLen) {
+        perror("sendTo::sendto()");
+        exit(1);
+    }
+}*/
+void sendTo(int socket_desc, char * buffer, int bufferLen, const char *foreignAddress, unsigned short foreignPort) {
     sockaddr_in destAddr;
     memset(&destAddr, 0, sizeof(destAddr));
     //fprintf(stderr, "%d: %d\n", __LINE__, bufferLen);
@@ -123,7 +139,7 @@ void sendTo(int socket_desc, const void *buffer, int bufferLen, const char *fore
     }
 }
 
-int recvFrom(int socket_desc, void *buffer, int bufferLen, char ** sourceAddress,
+/*int recvFrom(int socket_desc, void *buffer, int bufferLen, char ** sourceAddress,
 unsigned short *sourcePort){
     sockaddr_in clntAddr;
     socklen_t addrLen = sizeof(clntAddr);
@@ -135,7 +151,28 @@ unsigned short *sourcePort){
   *sourcePort = ntohs(clntAddr.sin_port);
 
   return rtn;
+}*/
+int recvFrom(int socket_desc, void *buffer, int bufferLen){
+    //sockaddr_in clntAddr;
+    //socklen_t addrLen = sizeof(clntAddr);
+    //int rtn;
+
+
+   // printf("%s\n", (char*)buffer);
+    int received = 0;
+    sockaddr_in source;
+    socklen_t addrLen = sizeof(source);
+
+    if((received= recvfrom(socket_desc, buffer, bufferLen, 0, (sockaddr *) 
+               &source, &addrLen) < 0)){
+        perror("recvfrom()");
+        exit(1);
+    }
+
+  return received;
 }
+
+
 
 void cleanup(int socket_desc){
     close(socket_desc);
@@ -173,38 +210,37 @@ int main(int argc, char *argv[])  // ./server <Server Port>
     //bind to port
     setLocalPort(socket_desc, port);
 
-    //setup openCV
-    cvNamedWindow("UDP Video Sender", CV_WINDOW_AUTOSIZE);
-    CvCapture* capture = cvCreateCameraCapture(0);
-    if(!capture){
-        perror("No camera found.");
-        //goto DONE;
-        exit(1);
-    }
-    IplImage *frame;
-    frame = cvQueryFrame(capture);
-    ////
-    CvMat *mat = cvCreaeteMat(frame->height, frame->width, CV_32FC3 );
-    cvConvert(frame, mat);
-    ////
-    IplImage *small = cvCreateImage(cvSize(frame->width / 2, frame->height / 2),
-        frame->depth, 3);
+
+
+    char * buff = (char*)malloc(65507);
+
+    cvNamedWindow("UDP Video Receiver", CV_WINDOW_AUTOSIZE);
+    vector * videoBuffer = vector_create(NULL, NULL, NULL);
 
     while(1){
-        frame = cvQueryFrame(capture);
-        cvShowImage("UDP Video Sender", small);
+        //char* msg = "Hello Kugo | Miao miao miao miao miao";
+        //sendTo(socket_desc, msg, strlen(msg), server_address, server_port);
+        //sleep(3);
+        //break;
 
-        int result = sendTo(socket_desc, const void *buffer, int bufferLen, "localAddr", port);
-        if(result <0){
-            perror("Send ()");
-            exit(1);
+        int result = recvFrom(socket_desc, buff, 65507);
+        if(result<0){
+            perror("Failed to receive");
+            continue;
         }
-        else{
-            printf("sent frame of size : %d.\n", result);
-        }
+        printf("gotcha size: %d.\n", result);
 
-        cvWaitKey(15);
-    } 
+        vector_resize(videoBuffer, result);
+        memcpy((char*) vector_get(videoBuffer, 0), buff, result);
+
+        IplImage * image = cvDecodeImage(videoBuffer, 1);
+        cvShowImage("UDP Video Receiver", &image);
+
+        cvWaitKey(5);
+    }
+
+
+
 
     cleanup(socket_desc);
      return 0;
