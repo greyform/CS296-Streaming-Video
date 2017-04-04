@@ -9,6 +9,16 @@
 #include <string.h>  //for memset
 #include <sys/types.h>  //data types  
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+#include <cv.h>
+#include <highgui.h>
+#include <ml.h>
+#include <cxcore.h>
+#include "vector.h"
+
+
 #define FRAME_HEIGHT 720
 #define FRAME_WIDTH 1280
 #define FRAME_INTERVAL (1000/30)
@@ -87,6 +97,32 @@ int createSocket(int type, int protocol){
     return socket_desc;
 }
 
+/*void sendTo(int socket_desc, const void *buffer, int bufferLen, char *host addr){
+    sockaddr_in destAddr;
+    memset(&destAddr, 0, sizeof(destAddr)); 
+    destAddr.sin_family = AF_INET;
+    destAddr.sin_addr.s_addr = inet_addr(destAddr);
+    destAddr.sin_port = htons(port);
+    memset(&(addr->sin_zero), 0, 8);
+
+
+fillAddr(foreignAddress, foreignPort, &destAddr);
+}*/
+
+void sendTo(int socket_desc, const void *buffer, int bufferLen, const char *foreignAddress, unsigned short foreignPort) {
+    sockaddr_in destAddr;
+    memset(&destAddr, 0, sizeof(destAddr));
+    //fprintf(stderr, "%d: %d\n", __LINE__, bufferLen);
+    fillAddr(foreignAddress, foreignPort, &destAddr);
+
+  // Write out the whole buffer as a single message.
+    if (sendto(socket_desc, buffer, bufferLen, 0,
+             (sockaddr *) &destAddr, sizeof(destAddr)) != bufferLen) {
+        perror("sendTo::sendto()");
+        exit(1);
+    }
+}
+
 int recvFrom(int socket_desc, void *buffer, int bufferLen, char ** sourceAddress,
 unsigned short *sourcePort){
     sockaddr_in clntAddr;
@@ -137,9 +173,45 @@ int main(int argc, char *argv[])  // ./server <Server Port>
     //bind to port
     setLocalPort(socket_desc, port);
 
+    //setup openCV
+    cvNamedWindow("UDP Video Sender", CV_WINDOW_AUTOSIZE);
+    CvCapture* capture = cvCreateCameraCapture(0);
+    if(!capture){
+        perror("No camera found.");
+        //goto DONE;
+        exit(1);
+    }
+    IplImage *frame;
+    frame = cvQueryFrame(capture);
+    ////
+    CvMat *mat = cvCreaeteMat(frame->height, frame->width, CV_32FC3 );
+    cvConvert(frame, mat);
+    ////
+    IplImage *small = cvCreateImage(cvSize(frame->width / 2, frame->height / 2),
+        frame->depth, 3);
+
+    while(1){
+        frame = cvQueryFrame(capture);
+        cvShowImage("UDP Video Sender", small);
+
+        int result = sendTo(socket_desc, const void *buffer, int bufferLen, "localAddr", port);
+        if(result <0){
+            perror("Send ()");
+            exit(1);
+        }
+        else{
+            printf("sent frame of size : %d.\n", result);
+        }
+
+        cvWaitKey(15);
+    } 
+
+    cleanup(socket_desc);
+     return 0;
+  }
 
 
-
+/*
       char buffer[BUF_LEN]; // Buffer for echo string
       int recvMsgSize; // Size of received message
       char * sourceAddress; // Address of datagram source
@@ -157,4 +229,4 @@ int main(int argc, char *argv[])  // ./server <Server Port>
 
       cleanup(socket_desc);
       return 0;
-  }
+  }*/
