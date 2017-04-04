@@ -12,6 +12,19 @@
 #include <string.h>  //for memset
 #include <sys/types.h>  //data types  
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+//#include <cv.h>
+//#include <highgui.h>
+#include <ml.h>
+#include <cxcore.h>
+#include "vector.h"
+
+#include <opencv/cv.h>
+#include <opencv/highgui.h>
+
+
 /*struct sockaddr_in {
     short            sin_family;   
     unsigned short   sin_port;     
@@ -82,6 +95,26 @@ void sendTo(int socket_desc, const void *buffer, int bufferLen, const char *fore
     }
 }
 
+int recvFrom(int socket_desc, void *buffer, int bufferLen){
+    //sockaddr_in clntAddr;
+    //socklen_t addrLen = sizeof(clntAddr);
+    //int rtn;
+
+
+   // printf("%s\n", (char*)buffer);
+    int received = 0;
+    sockaddr_in source;
+    socklen_t addrLen = sizeof(source);
+
+    if((received= recvfrom(socket_desc, buffer, bufferLen, 0, (sockaddr *) 
+               &source, &addrLen) < 0)){
+        perror("recvfrom()");
+        exit(1);
+    }
+
+  return received;
+}
+
 
 
 
@@ -106,14 +139,33 @@ int main(int argc, char *argv[])
     //setLocalPort(socket_desc, port);
 
 
-    char* sendString = argv[3];               // Third arg:  string to broadcast
+    //char* sendString = argv[3];               // Third arg:  string to broadcast
 
+    char * buff = (char*)malloc(65507);
+
+    cvNamedWindow("TCP Video Receiver", CV_WINDOW_AUTOSIZE);
+    vector * videoBuffer = vector_create(NULL, NULL, NULL);
 
     while(1){
-        char* msg = "Hello Kugo | Miao miao miao miao miao";
-        sendTo(socket_desc, msg, strlen(msg), server_address, server_port);
-        sleep(3);
+        //char* msg = "Hello Kugo | Miao miao miao miao miao";
+        //sendTo(socket_desc, msg, strlen(msg), server_address, server_port);
+        //sleep(3);
         //break;
+
+        int result = recvFrom(socket_desc, buff, 65507);
+        if(result<0){
+            perror("Failed to recieve");
+            continue;
+        }
+        printf("gotcha size: %d.\n", result);
+
+        vector_resize(videoBuffer, result);
+        memcpy((char*) vector_get(videoBuffer, 0), buff, result);
+
+        IplImage * image = cvDecodeImage(videoBuffer, 1);
+        cvShowImage("TCP Video Reciever", &image);
+
+        cvWaitKey(5);
     }
 
     cleanup(socket_desc);
