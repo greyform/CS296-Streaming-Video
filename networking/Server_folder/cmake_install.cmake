@@ -1,4 +1,4 @@
-# Install script for directory: /Users/Grace/Desktop/CS296-Streaming-Video/networking
+# Install script for directory: /Users/Grace/Desktop/CS296-Streaming-Video/networking/Server_folder
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -35,5 +35,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/Users/Grace/Desktop/CS296-Streaming-Video/networking/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/Users/Grace/Desktop/CS296-Streaming-Video/networking/Server_folder/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
