@@ -180,15 +180,15 @@ int main(int argc, char *argv[]){
             memcpy(bufUDP, small->imageData, small->imageSize);
                 //senMsgSize = sendto(childfd, (char*)&(small->imageSize), 8, 0, (struct sockaddr *)&clientAddr, clientAddr_size);
             
-            //senMsgSize = sendto(childfd, (char*)&(small->imageSize), sizeof(int), 0, 
-                                           // (struct sockaddr *)&clientAddr, clientAddr_size);
-            fprintf(stderr, "%zd, %d\n", senMsgSize, small->imageSize);
-                //if(senMsgSize < 0){
-                  //  perror("Failed to Send"); 
-               // }
+            senMsgSize = sendto(childfd, (char*)&(small->imageSize), 8, 0, 
+                                            (struct sockaddr *)&clientAddr, clientAddr_size);
+            fprintf(stderr, "%d, %d\n", senMsgSize, small->imageSize)
+                if(senMsgSize < 0){
+                    perror("Failed to Send"); 
+                }
 
             senMsgSize = sendto(childfd, bufUDP, small->imageSize, 0, (struct sockaddr *)&clientAddr, clientAddr_size);
-            fprintf(stderr, "%zd, %d\n", senMsgSize, small->imageSize);
+
                 if (senMsgSize < 0)
                 {
                     perror("Failed to Send"); // check errno for the problem or conection lost

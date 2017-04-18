@@ -35,6 +35,10 @@ stdio.h
 -
 math.h
 -
+pthread.h
+-
+signal.h
+-
 ml.h
 -
 cxcore.h
