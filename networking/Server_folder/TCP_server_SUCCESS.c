@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include <pthread.h>
+//#include <pthread.h>
 #include <signal.h>
 #include <ml.h>
 #include <cxcore.h>
@@ -35,31 +35,29 @@
 #define ENCODE_QUALITY 80
   #define BUFSIZE 1024
 #define MAX_PAQS (640*480*3/1024)
-
 #define MESSAGE_SIZE_DIGITS 8
 #define MAX_CLIENTS 8
 
-void *process_client(void *p);
+void process_client();
 
-static volatile int endSession;
-static volatile int serverSocket;
-
-static volatile int clientsCount;
-static volatile int clients[MAX_CLIENTS];
-
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-int width;
-int height;
-int depth;
-void* accept_connection(void*id);
+int serverSocket;
+int childfd;
+int endSession;
+//static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+typedef struct servent servent;
+typedef struct sockaddr_in sockaddr_in;
+typedef struct sockaddr sockaddr;
+typedef struct hostent hostent;
 
 
 void cleanup() {
-    for(int i = 0; i <clientsCount; i++){
-        if(clients[i] != -1) shutdown(clients[i], SHUT_RDWR);
-        close(clients[i]);
-    }
+    //for(int i = 0; i <clientsCount; i++){
+      //  if(clients[i] != -1) shutdown(clients[i], SHUT_RDWR);
+        //close(clients[i]);
+    //}
+    close(childfd);
     close(serverSocket); 
+    // Your code here.
 }
 
 /**
@@ -72,17 +70,7 @@ void close_server() {
     shutdown(serverSocket, SHUT_RDWR); 
     cleanup();
     exit(1);
-    pthread_exit(NULL);
-}
-
-intptr_t check_available(int childfd){
-    for(intptr_t i = 0; i < MAX_CLIENTS; i++){
-        if(clients[i] == -1){
-            clients[i] = childfd;
-            return i;
-        }       
-    }
-    return -1;
+    //pthread_exit(NULL);
 }
 
 ssize_t read_all_from_socket(int socket, char *buffer, size_t count) {
@@ -149,19 +137,17 @@ void usage(char * command){
  *
  * Return value not used.
  */
-void* process_client(void*p) {
+void process_client() {
     //pthread_detach(pthread_self());
-    intptr_t clientId = (intptr_t)p;
+    //intptr_t clientId = (intptr_t)p;
     ssize_t retval = 1;
-    char *buffer = NULL;
-    printf("Serving client %d .\n", (int)clientId);
+    //char *buffer = NULL;
+   // printf("Serving client %d .\n", (int)clientId);
+
     /* 
      * OpenCV: Grabbing a frame
      */
     int senMsgSize;
-    pthread_mutex_lock(&mutex);
-    int childfd = clients[clientId];
-    pthread_mutex_unlock(&mutex);
 
     CvCapture* FrameCapture = cvCaptureFromCAM(0); 
     IplImage* frameORG = cvQueryFrame(FrameCapture);  
@@ -176,32 +162,33 @@ void* process_client(void*p) {
     senMsgSize = write_message_size(frameORG->height, childfd);
     senMsgSize = write_message_size(frameORG->depth, childfd);
 
-    while(1)
-    //for(int i=0; i<10000000; i++)
+
+
+    while((cvWaitKey(40) & 0xFF) != 'x')
+    //for(int i =0; i<1000; i++)
     {
             small = cvQueryFrame(FrameCapture);
-            //fprintf(stderr, "small_size: %d\n", small->imageSize);     
+            fprintf(stderr, "small_size: %d\n", small->imageSize);     
             senMsgSize = write_message_size(small->imageSize,childfd);  
             if(senMsgSize <0 ){
                 perror("failed to send");
                 exit(1);
-            }                             
+            }
+            else
+                fprintf(stderr, "write_msg_size: %d.\n", senMsgSize);                              
             senMsgSize = //send(childfd, small->imageData, small->imageSize);
                         write_all_to_socket(childfd, small->imageData, small->imageSize);
             if(senMsgSize <0 ){
                 perror("failed to send");
                 exit(1);
-            }     
+            }
+            else
+                fprintf(stderr, "write_img: %d.\n", senMsgSize);      
         cvShowImage("Webcam from Server", small); // feedback on server webcam
+      
     }
 
     close(childfd);
-    pthread_mutex_lock(&mutex);
-    clients[clientId] = -1;
-    clientsCount--;
-    pthread_mutex_unlock(&mutex);
-
-    return NULL;
 }
 
 
@@ -245,102 +232,11 @@ void run_server(char *port) {
     else
         fprintf(stderr, "Listen: SUCCESS\n");
 
-    for(int i = 0; i < MAX_CLIENTS; i++){
-        clients[i] = -1;       
-    }
-
-    /* 
-     * OpenCV: Grabbing a frame
-     */
-
-    CvCapture* FrameCapture = cvCaptureFromCAM(0); 
-    IplImage* frameORG = cvQueryFrame(FrameCapture);  
-    IplImage* small = cvCreateImage(cvSize(frameORG->width, frameORG->height), frameORG->depth, 3);
-    width = frameORG->width;
-    height = frameORG->height;
-    depth = frameORG->depth;
-
-    /*Create a thread to handle connections*/
-    pthread_t pool;
-    if(pthread_create(&pool, NULL, accept_connection, NULL)){
-        perror("pthread_create()");
-        exit(1);
-    }
-
-    int senMsgSize;
-   // pthread_mutex_lock(&mutex);
-    //int childfd = clients[clientId];
-    //pthread_mutex_unlock(&mutex);
-
-    if(!FrameCapture) {
-        perror("Could not iniciate webcam");
-        exit(1);
-    }
-
-    while((cvWaitKey(40) & 0xFF) != 'x'){
-        small = cvQueryFrame(FrameCapture);
-        for(int i = 0; i < MAX_CLIENTS; i++){
-            pthread_mutex_lock(&mutex);
-            if(clients[i]!=-1){
-                int childfd = clients[i];
-                pthread_mutex_unlock(&mutex);
-                senMsgSize = write_message_size(small->imageSize,childfd); 
-                if(senMsgSize <0 ){
-                    perror("failed to send");
-                    exit(1);
-                }                             
-                senMsgSize = //send(childfd, small->imageData, small->imageSize);
-                            write_all_to_socket(childfd, small->imageData, small->imageSize);
-                if(senMsgSize <0 ){
-                    perror("failed to send");
-                    exit(1);
-                }   
-            }
-            else
-                pthread_mutex_unlock(&mutex);
-        }
-        cvShowImage("Webcam from Server", small); // feedback on server webcam
-    }
-
-}
-
-void* accept_connection(void*id){
-    int childfd;
-    int senMsgSize;
-
-     while(1){
-        pthread_mutex_lock(&mutex);
-        if(endSession){ 
-            pthread_mutex_unlock(&mutex);
-            return NULL;
-        }
-        if(clientsCount >= MAX_CLIENTS){
-            pthread_mutex_unlock(&mutex); 
-            continue;
-        }
-        pthread_mutex_unlock(&mutex);
 
         childfd = accept(serverSocket, NULL, NULL);
         fprintf(stderr, "Accept(): SUCCESS\n");
-        senMsgSize = write_message_size(width,childfd);
-        senMsgSize = write_message_size(height, childfd);
-        senMsgSize = write_message_size(depth, childfd);
-
-        pthread_mutex_lock(&mutex);
-        intptr_t id = check_available(childfd);
-        clientsCount++;
-        printf("Currently servering %d clients\n", clientsCount);
-        pthread_mutex_unlock(&mutex);
-
-       /* pthread_t pool;
-        if(pthread_create(&pool, NULL, process_client, (void*) id)){
-            perror("pthread_create()");
-            exit(1);
-        }*/
-    } 
-    return NULL;
+        process_client();
 }
-
 
 
 int main(int argc, char *argv[]){
@@ -377,7 +273,7 @@ int main(int argc, char *argv[]){
     run_server(argv[1]);
 
     cleanup();
-    pthread_exit(NULL);
+    //pthread_exit(NULL);
     return 0;
 
 
