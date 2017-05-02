@@ -113,12 +113,12 @@ int connect_to_server(const char *host, const char *port) {
             fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
             exit(1);
     }
-
+fprintf(stderr, "before connect\n");
     if(connect(sockfd, result->ai_addr, result->ai_addrlen) == -1){
         perror("connect");
         exit(1);
     }
-
+fprintf(stderr, "after connect\n");
     freeaddrinfo(result);
     return sockfd;
 }
@@ -138,8 +138,9 @@ int main(int argc, char *argv[])
     } 
     sockaddr_in server_addr;
     socklen_t length;
-
+    fprintf(stderr, "before connect\n");
     sockfd = connect_to_server(argv[1], argv[2]);
+    fprintf(stderr, "after connect\n");
 
     int retval = 1;
     int times;

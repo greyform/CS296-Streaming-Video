@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-//#include <pthread.h>
+#include <pthread.h>
 #include <signal.h>
 #include <ml.h>
 #include <cxcore.h>
@@ -43,7 +43,7 @@ void process_client();
 int serverSocket;
 int childfd;
 int endSession;
-//static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 typedef struct servent servent;
 typedef struct sockaddr_in sockaddr_in;
 typedef struct sockaddr sockaddr;
@@ -51,10 +51,10 @@ typedef struct hostent hostent;
 
 
 void cleanup() {
-    //for(int i = 0; i <clientsCount; i++){
-      //  if(clients[i] != -1) shutdown(clients[i], SHUT_RDWR);
-        //close(clients[i]);
-    //}
+    for(int i = 0; i <clientsCount; i++){
+        if(clients[i] != -1) shutdown(clients[i], SHUT_RDWR);
+        close(clients[i]);
+    }
     close(childfd);
     close(serverSocket); 
     // Your code here.
@@ -138,11 +138,11 @@ void usage(char * command){
  * Return value not used.
  */
 void process_client() {
-    //pthread_detach(pthread_self());
-    //intptr_t clientId = (intptr_t)p;
+    pthread_detach(pthread_self());
+    intptr_t clientId = (intptr_t)p;
     ssize_t retval = 1;
-    //char *buffer = NULL;
-   // printf("Serving client %d .\n", (int)clientId);
+    char *buffer = NULL;
+    printf("Serving client %d .\n", (int)clientId);
 
     /* 
      * OpenCV: Grabbing a frame
@@ -164,8 +164,7 @@ void process_client() {
 
 
 
-    while((cvWaitKey(40) & 0xFF) != 'x')
-    //for(int i =0; i<1000; i++)
+    while(1)
     {
             small = cvQueryFrame(FrameCapture);
             fprintf(stderr, "small_size: %d\n", small->imageSize);     
@@ -184,14 +183,10 @@ void process_client() {
             }
             else
                 fprintf(stderr, "write_img: %d.\n", senMsgSize);      
-        cvShowImage("Webcam from Server", small); // feedback on server webcam
-      
+        //cvShowImage("Webcam from Server", small); // feedback on server webcam 
     }
-
     close(childfd);
 }
-
-
 
 
 void run_server(char *port) {
