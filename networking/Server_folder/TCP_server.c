@@ -27,6 +27,7 @@
 #include "opencv2/cvconfig.h"
 #include "opencv2/core/core_c.h"
 #include "opencv2/videoio/videoio_c.h"
+#include "opencv2/imgcodecs/imgcodecs_c.h"
 #include <time.h>
 
 #define FRAME_HEIGHT 720
@@ -41,6 +42,7 @@
 #define MAX_CLIENTS 5
 
 int camera;
+int ResizeFactor = 1;
 
 pid_t pid[MAX_CLIENTS];
 pid_t end[MAX_CLIENTS];
@@ -57,6 +59,8 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 int width;
 int height;
 int depth;
+int imageSize;
+
 void* accept_connection(void*id);
 
 
@@ -74,10 +78,8 @@ void cleanup() {
  */
 void close_server() {
     endSession = 1;
-    // add any additional flags here you want.
     shutdown(serverSocket, SHUT_RDWR); 
     cleanup();
-    exit(1);
     pthread_exit(NULL);
 }
 
@@ -92,7 +94,6 @@ intptr_t check_available(int childfd){
 }
 
 ssize_t read_all_from_socket(int socket, char *buffer, size_t count) {
-    // Your Code Here
   ssize_t bytes_read; 
   ssize_t total_read = 0;
   while(1)
@@ -124,7 +125,6 @@ ssize_t write_all_to_socket(int socket, const char *buffer, size_t count) {
   return 0; 
 }
 
-// You may assume size won't be larger than a 4 byte integer
 ssize_t write_message_size(size_t size, int socket) {
     uint32_t s = htonl((uint32_t) size); 
     ssize_t write_bytes = write_all_to_socket(socket, (char *)&s, MESSAGE_SIZE_DIGITS);
@@ -143,9 +143,7 @@ ssize_t get_message_size(int socket) {
 }
 
 
-void usage(char * command){
-    fprintf(stderr, "Usage: %s <Port> [camera]\n", command);
-}
+
 
 /**
  * Handles the reading to and writing from clients.
@@ -156,67 +154,76 @@ void usage(char * command){
  * Return value not used.
  */
 void* process_client(void* p) {
-    //pthread_detach(pthread_self());
-    intptr_t clientId = (intptr_t)p;
-    ssize_t retval = 1;
-    char *buffer = NULL;
-    printf("Serving client %d .\n", (int)clientId);
-    /* 
-     * OpenCV: Grabbing a frame
-     */
+
+    CvMat *mat;
+    int params[] = {CV_IMWRITE_JPEG_QUALITY, 50};
+    CvCapture* FrameCapture; 
+    CvVideoWriter * writer;
+    IplImage* frameORG, *small, *jpg;
     int senMsgSize;
-    pthread_mutex_lock(&mutex);
-    int childfd = clients[clientId];
-    pthread_mutex_unlock(&mutex);
+    char key;
+    int Switch = 0;
 
-    CvCapture* FrameCapture = cvCaptureFromCAM(camera); 
-   // int window = cvNamedWindow("Webcam from Server", CV_WINDOW_NORMAL);
-    IplImage* frameORG = cvQueryFrame(FrameCapture);  
-    IplImage* small = cvCreateImage(cvSize(frameORG->width, frameORG->height), frameORG->depth, 3);
 
-    if(!FrameCapture) {
-        perror("Could not iniciate webcam");
-        exit(1);
+    if ((FrameCapture = cvCreateCameraCapture(camera)) == NULL) {
+        fprintf(stderr, "Could not initiate webcam.\n");
+        return NULL;
     }
+    
+    small = cvCreateImage(cvSize(width, height), depth, 3); 
 
-    senMsgSize = write_message_size(frameORG->width,childfd);
-    senMsgSize = write_message_size(frameORG->height, childfd);
-    senMsgSize = write_message_size(frameORG->depth, childfd);
+    while( 1){
+        if(key == 'x'){ break;}
+        frameORG = cvQueryFrame(FrameCapture);
+        cvResize(frameORG, small, CV_INTER_LINEAR);
+        
+        mat = cvEncodeImage(".jpg", small, params);
 
-    while(1)
-    //for(int i=0; i<10000000; i++)
-    {
-            small = cvQueryFrame(FrameCapture);
-            //cvResize(frameORG, small, CV_INTER_LINEAR );
-            //fprintf(stderr, "small_size: %d\n", small->imageSize);     
-            senMsgSize = write_message_size(small->imageSize,childfd);  
-            if(senMsgSize <0 ){
-                perror("failed to send");
-                exit(1);
-            }                             
-            senMsgSize = //send(childfd, small->imageData, small->imageSize);
-                        write_all_to_socket(childfd, small->imageData, small->imageSize);
-            if(senMsgSize <0 ){
-                perror("failed to send");
-                exit(1);
-            }     
-        cvShowImage("Webcam from Server", small); // feedback on server webcam
+        key = cvWaitKey(30) & 0XFF;
+        if(key == 's'){
+            Switch = !Switch;
+            if(Switch){
+                time_t t = time(NULL);
+                struct tm tm = *localtime(&t);
+                char filename[128];
+                sprintf(filename, "camera_%d_%d_%d_%d:%d.avi", tm.tm_year+1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min);
+                int frameW = (int)cvGetCaptureProperty(FrameCapture , CV_CAP_PROP_FRAME_WIDTH);
+                int frameH = (int)cvGetCaptureProperty(FrameCapture , CV_CAP_PROP_FRAME_HEIGHT);
+                writer = cvCreateVideoWriter(filename, CV_FOURCC('M','J','P','G'), //CV_CAP_PROP_FOURCC, CV_FOURCC('M','J', 'P', 'G'),
+                    CV_CAP_PROP_FPS, cvSize(frameW, frameH), 1);
+            }
+        }
+        if( Switch ){
+            cvWriteFrame(writer, small);
+        }
+
+        for(int i = 0; i < MAX_CLIENTS; i++){
+            pthread_mutex_lock(&mutex);
+                if(clients[i]!=-1){
+                    int childfd = clients[i];
+                    pthread_mutex_unlock(&mutex);                           
+                    senMsgSize = //send(childfd, small->imageData, small->imageSize);
+                                write_all_to_socket(childfd, small->imageData, small->imageSize);
+                    if(senMsgSize <0 ){
+                        perror("failed to send");
+                        //close_connection();
+                    }   
+                }
+                else
+                    pthread_mutex_unlock(&mutex);
+        }
+        cvShowImage("Local Webcam", small); // feedback on server webcam
+        
     }
-
-    close(childfd);
-    pthread_mutex_lock(&mutex);
-    clients[clientId] = -1;
-    clientsCount--;
-    pthread_mutex_unlock(&mutex);
-
+    cvReleaseImage(&frameORG);
+    cvReleaseImage(&small);
+    cvReleaseCapture(&FrameCapture);
+    cvDestroyWindow("Webcam from Server");
+    cvReleaseVideoWriter(&writer);
     return NULL;
 }
 
-
-
-
 void run_server(char *port) {
-    
     int s;
     serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     int optval = 1;
@@ -266,118 +273,18 @@ void run_server(char *port) {
     IplImage* frameORG = cvQueryFrame(FrameCapture);  
    // fprintf(stderr, "%d\n", __LINE__);
     int window = cvNamedWindow("Webcam from Server", CV_WINDOW_AUTOSIZE);
-    IplImage* small = cvCreateImage(cvSize(frameORG->width, frameORG->height), frameORG->depth, 3);
-    //fprintf(stderr, "%d\n", __LINE__);
-    width = frameORG->width;
-    height = frameORG->height;
+    //IplImage* small = cvCreateImage(cvSize(frameORG->width, frameORG->height), frameORG->depth, 3);
+    width = frameORG->width/ResizeFactor;
+    height = frameORG->height/ResizeFactor;
     depth = frameORG->depth;
-    //fprintf(stderr, "%d\n", __LINE__);
+
     /*Create a thread to handle connections*/
     pthread_t pool;
     if(pthread_create(&pool, NULL, accept_connection, NULL)){
         perror("pthread_create()");
         exit(1);
     }
-
-    
-    int senMsgSize;
-    //pthread_mutex_lock(&mutex);
-   // int childfd = clients[clientId];
-   // pthread_mutex_unlock(&mutex);
-
-    if(!FrameCapture) {
-        perror("Could not iniciate webcam");
-        exit(1);
-    }
-
-char key;
-int Switch = 0;
-
- CvVideoWriter * writer;
-
-    while( 1){
-        
-
-        if(key == 'x'){ break;}
-        small = cvQueryFrame(FrameCapture);
-       // cvResize(frameORG, small, CV_INTER_LINEAR );
-        //int status;
-        key = cvWaitKey(30) & 0XFF;
-        if(key == 's'){
-            Switch = !Switch;
-            if(Switch){
-                time_t t = time(NULL);
-                struct tm tm = *localtime(&t);
-                char filename[128];
-                sprintf(filename, "camera_%d_%d_%d_%d:%d.avi", tm.tm_year+1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min);
-                int frameW = (int)cvGetCaptureProperty(FrameCapture , CV_CAP_PROP_FRAME_WIDTH);
-                int frameH = (int)cvGetCaptureProperty(FrameCapture , CV_CAP_PROP_FRAME_HEIGHT);
-                writer = cvCreateVideoWriter(filename, CV_FOURCC('M','J','P','G'), //CV_CAP_PROP_FOURCC, CV_FOURCC('M','J', 'P', 'G'),
-                    CV_CAP_PROP_FPS, cvSize(frameW, frameH), 1);
-            }
-
-            
-        }
-        if( Switch ){
-            cvWriteFrame(writer, small);
-        }
-
-        for(int i = 0; i < MAX_CLIENTS; i++){
-            //pid[i] = fork();
-            pthread_mutex_lock(&mutex);
-            //fprintf(stderr, "%d\n", __LINE__);
-            /*if(pid[i] == -1){
-                perror("fork error");
-                exit(EXIT_FAILURE);
-            }
-            else if(pid[i] == 0){
-            //child            
-            //fprintf(stderr, "%d\n", __LINE__);*/
-                if(clients[i]!=-1){
-                    int childfd = clients[i];
-                    pthread_mutex_unlock(&mutex);
-                    senMsgSize = write_message_size(small->imageSize,childfd); 
-                    if(senMsgSize <0 ){
-                        perror("failed to send");
-                        exit(1);
-                    }                             
-                    senMsgSize = //send(childfd, small->imageData, small->imageSize);
-                                write_all_to_socket(childfd, small->imageData, small->imageSize);
-                    if(senMsgSize <0 ){
-                        perror("failed to send");
-                        exit(1);
-                    }   
-                }
-                else
-                    //exit(EXIT_SUCCESS);
-                    pthread_mutex_unlock(&mutex);
-            //}
-        }//for loop end
-
-        //parent
-        /*for(int i = 0; i < clientsCount; i++){
-            end[i] = waitpid(pid[i], &status, WNOHANG|WUNTRACED);
-            if(end[i] == -1){
-                perror("waitpid error");
-                exit(EXIT_FAILURE); 
-            }
-            else if( end[i] == pid[i]){
-             if(WIFSIGNALED(status))
-                    fprintf(stderr, "Child ended because of an uncaught signal.\n");
-                else if(WIFSTOPPED(status))
-                    fprintf(stderr, "Child process has stopped.\n");
-                    
-            }
-        }*/
-
-        cvShowImage("Webcam from Server", small); // feedback on server webcam
-        
-    }
-        cvReleaseImage(&frameORG);
-        cvReleaseImage(&small);
-        cvReleaseCapture(&FrameCapture);
-        cvDestroyWindow("Webcam from Server");
-        cvReleaseVideoWriter(&writer);
+    process_client(NULL);
 }
 
 void* accept_connection(void*id){
@@ -413,12 +320,23 @@ void* accept_connection(void*id){
 }
 
 
+void usage(char * command){
+    fprintf(stderr, "Usage: %s <Port> [camera] [resize_factor]\n", command);
+}
 
 int main(int argc, char *argv[]){
-    if(argc != 2 && argc != 3){
+    if(argc != 2 && argc != 3 && argc != 4){
         usage(argv[0]);
         exit(1);
     }
+    if(argv[2]){
+        camera = atoi(argv[2]);
+        fprintf(stderr, "%d\n", camera);
+    }
+    if(argv[2] && argv[3]){
+        ResizeFactor = atoi(argv[3]);
+    }
+
     struct sigaction act;
     memset(&act, '\0', sizeof(act));
     act.sa_handler = close_server;
@@ -426,36 +344,14 @@ int main(int argc, char *argv[]){
         perror("sigaction");
         return 1;
     }
-
-   /* CvCapture* FrameCapture = cvCaptureFromCAM(0); 
-    IplImage* frameORG = cvQueryFrame(FrameCapture);  
-    IplImage* small = cvCreateImage(cvSize(frameORG->width, frameORG->height), frameORG->depth, 3);
-    IplImage* img = cvCreateImage(cvSize(frameORG->width, frameORG->height), frameORG->depth, 3);
-    
-
-     while((cvWaitKey(40) & 0xFF) != 'x')
-    //for(int i =0; i<1000; i++)
-    {
-        small = cvQueryFrame(FrameCapture); 
-        cvShowImage("Webcam from Server", small); // feedback on server webcam
-        memcpy(img->imageData, small->imageData, small->imageSize);
-        cvShowImage("NewImage", img);
-      
-    }*/
-
-
     signal(SIGINT, close_server);
-    //fprintf(stderr, "%d\n", __LINE__);
-    if(argv[2])
-        camera = atoi(argv[2]);
+
+
     run_server(argv[1]);
-    //fprintf(stderr, "%d\n", __LINE__);
 
     cleanup();
     pthread_exit(NULL);
     return 0;
-
-
 }
 
 

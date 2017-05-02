@@ -144,12 +144,11 @@ int main(int argc, char *argv[])
 
     int retval = 1;
     int times;
-    char* buffer = NULL; // Buffer for echo string
     int recvMsgSize; // Size of received message
     int totalsize = 0;
 
 
-    cvNamedWindow("TCP Streaming from Server", CV_WINDOW_AUTOSIZE);
+    cvNamedWindow("Client", CV_WINDOW_AUTOSIZE);
     int width = get_message_size(sockfd);
     if(width <= 0){
       perror("wrong message size");
@@ -178,26 +177,20 @@ int main(int argc, char *argv[])
       fprintf(stderr, "depth: %d\n", depth);
 
     IplImage* img = cvCreateImage(cvSize(width, height), depth, 3);
+    int imageSize = img->imageSize;
+    fprintf(stderr, "%d\n", imageSize);
 
     while((cvWaitKey(40) & 0xFF) != 'x')
     {
-        recvMsgSize = get_message_size(sockfd);
-        if(recvMsgSize <= 0){
-            perror("wrong message size");
-            close_program();
-            exit(1);
-        }
-        buffer = calloc(1, recvMsgSize+1);
-        totalsize = read_all_from_socket(sockfd, buffer, recvMsgSize);
+        totalsize = read_all_from_socket(sockfd, img->imageData, imageSize);
         if(totalsize <= 0){
             perror("wrong message size");
             close_program();
             exit(1);
         }
-
-        memcpy(img->imageData, buffer, recvMsgSize);
-        free(buffer);
-        buffer = NULL;     
+        else 
+            fprintf(stderr, "Received %d bytes of data\n", totalsize);
+  
         cvShowImage("TCP Streaming from Server", img);
     }
 
