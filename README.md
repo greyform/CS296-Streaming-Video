@@ -31,13 +31,14 @@ To avoid latency, every frame is individually encoded to jpeg format by OpenCV t
 
 Setup
 
-Run the following command to see stream your camera through localhost: (CMake and OpenCV required)
+Run the following code to set up server/client on your computer: (CMake and OpenCV required)
 
 git clone https://github.com/greyform/CS296-Streaming-Video.git
 cd CS296-Streaming-Video/bin/
 cmake . && make
 
 Usage
+Run the following command to see stream your camera through localhost:
 
 ./server <port> [device number] [resize factor]   
 // The device number is set to 0 as default. To change input source, change the argument accordingly. 
