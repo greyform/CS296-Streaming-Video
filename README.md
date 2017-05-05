@@ -33,8 +33,8 @@ Setup
 
 Run the following command to see stream your camera through localhost: (CMake and OpenCV required)
 
-https://github.com/greyform/CS296-Streaming-Video.git
-cd CS296-Streaming-Video
+git clone https://github.com/greyform/CS296-Streaming-Video.git
+cd CS296-Streaming-Video/bin/
 cmake . && make
 
 Usage
