@@ -12,6 +12,9 @@ bash install-opencv.sh
 
 Type your sudo password and you will have installed OpenCV. This operation may take a long time due to the packages to be installed and the compilation process.
 
+
+Install CMAKE
+
 Download cmake from the official website:
 https://cmake.org/download/
 
