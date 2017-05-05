@@ -1,4 +1,4 @@
-This project aims to build a surveillance cam system, where images are grabbed from camera on one machine and transfered to another machine via TCP, resulting in a live stream of video feed. 
+This project aims to build a surveillance cam system, where images are grabbed from camera on one machine and transfered to another machine via TCP, resulting in a live stream of video feed. To avoid latency, every frame is individually encoded to jpeg format by OpenCV to drastically reduce the bandwidth consumption.
 
 
 
@@ -24,17 +24,14 @@ If there is no existing CMake installation, a bootstrap script is provided to bu
   make install
 
 
-Image Encoding
-
-To avoid latency, every frame is individually encoded to jpeg format by OpenCV to drastically reduce the bandwidth consumption.
-
-
 Setup
 
 Run the following code to set up server/client on your computer: (CMake and OpenCV required)
 
 git clone https://github.com/greyform/CS296-Streaming-Video.git
+
 cd CS296-Streaming-Video/bin/
+
 cmake . && make
 
 Usage
