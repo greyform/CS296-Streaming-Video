@@ -1,0 +1,3 @@
+/home/why/Downloads/CS296-Streaming-Video/Webcam/CMakeFiles/edit_cache.dir
+/home/why/Downloads/CS296-Streaming-Video/Webcam/CMakeFiles/rebuild_cache.dir
+/home/why/Downloads/CS296-Streaming-Video/Webcam/CMakeFiles/Webcam.dir
